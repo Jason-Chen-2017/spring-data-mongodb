@@ -29,6 +29,7 @@ import com.mongodb.DBObject;
  * Unit tests for {@link AggregationOptions}.
  * 
  * @author Thomas Darimont
+ * @author Mark Paluch
  * @since 1.6
  */
 public class AggregationOptionsTests {
@@ -37,9 +38,10 @@ public class AggregationOptionsTests {
 
 	@Before
 	public void setup() {
-		aggregationOptions = newAggregationOptions().explain(true).cursor(new BasicDBObject("foo", 1)).allowDiskUse(true)
+		aggregationOptions = newAggregationOptions().explain(true) //
+				.cursorBatchSize(1) //
+				.allowDiskUse(true) //
 				.build();
-
 	}
 
 	@Test // DATAMONGO-960
@@ -47,12 +49,28 @@ public class AggregationOptionsTests {
 
 		assertThat(aggregationOptions.isAllowDiskUse(), is(true));
 		assertThat(aggregationOptions.isExplain(), is(true));
-		assertThat(aggregationOptions.getCursor(), is((DBObject) new BasicDBObject("foo", 1)));
+		assertThat(aggregationOptions.getCursor(), is((DBObject) new BasicDBObject("batchSize", 1)));
+	}
+
+	@Test // DATAMONGO-1637
+	public void shouldInitializeFromDBObject() {
+
+		DBObject dbObject = new BasicDBObject();
+		dbObject.put("cursor", new BasicDBObject("batchSize", 1));
+		dbObject.put("explain", true);
+		dbObject.put("allowDiskUse", true);
+
+		aggregationOptions = AggregationOptions.fromDBObject(dbObject);
+
+		assertThat(aggregationOptions.isAllowDiskUse(), is(true));
+		assertThat(aggregationOptions.isExplain(), is(true));
+		assertThat(aggregationOptions.getCursor(), is((DBObject) new BasicDBObject("batchSize", 1)));
+		assertThat(aggregationOptions.getCursorBatchSize(), is(1));
 	}
 
 	@Test // DATAMONGO-960
 	public void aggregationOptionsToString() {
 		assertThat(aggregationOptions.toString(),
-				is("{ \"allowDiskUse\" : true , \"explain\" : true , \"cursor\" : { \"foo\" : 1}}"));
+				is("{ \"allowDiskUse\" : true , \"explain\" : true , \"cursor\" : { \"batchSize\" : 1}}"));
 	}
 }

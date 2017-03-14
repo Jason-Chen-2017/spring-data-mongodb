@@ -1,5 +1,5 @@
 /*
- * Copyright 2011-2015 the original author or authors.
+ * Copyright 2011-2017 the original author or authors.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import java.util.Set;
 import org.springframework.data.geo.GeoResults;
 import org.springframework.data.mongodb.core.BulkOperations.BulkMode;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationOptions;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.aggregation.TypedAggregation;
 import org.springframework.data.mongodb.core.convert.MongoConverter;
@@ -56,7 +57,7 @@ import com.mongodb.WriteResult;
  * @author Chuong Ngo
  * @author Christoph Strobl
  * @author Thomas Darimont
- * @author maninder
+ * @author Maninder Singh
  */
 public interface MongoOperations {
 
@@ -408,9 +409,6 @@ public interface MongoOperations {
 	 */
 	<O> AggregationResults<O> aggregate(TypedAggregation<?> aggregation, String collectionName, Class<O> outputType);
 
-	<O> CloseableIterator<O> aggregateStream(TypedAggregation<?> aggregation, String inputCollectionName,
-											 Class<O> outputType);
-
 	/**
 	 * Execute an aggregation operation. The raw results will be mapped to the given entity class. The name of the
 	 * inputCollection is derived from the inputType of the aggregation.
@@ -422,19 +420,6 @@ public interface MongoOperations {
 	 * @since 1.3
 	 */
 	<O> AggregationResults<O> aggregate(TypedAggregation<?> aggregation, Class<O> outputType);
-
-	/**
-	 * Execute an aggregation operation. The raw results will be mapped to the given entity class and are returned as
-	 * stream. The name of the inputCollection is derived from the inputType of the aggregation.
-	 *
-	 * @param aggregation The {@link TypedAggregation} specification holding the aggregation operations, must not be
-	 *          {@literal null}.
-	 * @param outputType The parameterized type of the returned list, must not be {@literal null}.
-	 * @return The results of the aggregation operation.
-	 * @since 1.11.0
-	 */
-	<O> CloseableIterator<O> aggregateStream(TypedAggregation<?> aggregation, Class<O> outputType);
-
 
 	/**
 	 * Execute an aggregation operation. The raw results will be mapped to the given entity class.
@@ -449,8 +434,6 @@ public interface MongoOperations {
 	 */
 	<O> AggregationResults<O> aggregate(Aggregation aggregation, Class<?> inputType, Class<O> outputType);
 
-	<O> CloseableIterator<O> aggregateStream(Aggregation aggregation, Class<?> inputType, Class<O> outputType);
-
 	/**
 	 * Execute an aggregation operation. The raw results will be mapped to the given entity class.
 	 * 
@@ -464,8 +447,81 @@ public interface MongoOperations {
 	 */
 	<O> AggregationResults<O> aggregate(Aggregation aggregation, String collectionName, Class<O> outputType);
 
-	<O> CloseableIterator<O> aggregateStream(Aggregation aggregation, String collectionName, Class<O> outputType);
+	/**
+	 * Execute an aggregation operation backed by a Mongo DB {@link Cursor}.
+	 * <p>
+	 * Returns a {@link CloseableIterator} that wraps the a Mongo DB {@link Cursor} that needs to be closed. The raw
+	 * results will be mapped to the given entity class. The name of the inputCollection is derived from the inputType of
+	 * the aggregation.
+	 * <p>
+	 * Aggregation streaming can't be used with {@link AggregationOptions#isExplain() aggregation explain}. Enabling
+	 * explanation mode will throw an {@link IllegalArgumentException}.
+	 *
+	 * @param aggregation The {@link TypedAggregation} specification holding the aggregation operations, must not be
+	 *          {@literal null}.
+	 * @param collectionName The name of the input collection to use for the aggreation.
+	 * @param outputType The parameterized type of the returned list, must not be {@literal null}.
+	 * @return The results of the aggregation operation.
+	 * @since 1.11
+	 */
+	<O> CloseableIterator<O> aggregateStream(TypedAggregation<?> aggregation, String inputCollectionName,
+			Class<O> outputType);
 
+	/**
+	 * Execute an aggregation operation backed by a Mongo DB {@link Cursor}.
+	 * <p>
+	 * Returns a {@link CloseableIterator} that wraps the a Mongo DB {@link Cursor} that needs to be closed. The raw
+	 * results will be mapped to the given entity class and are returned as stream. The name of the inputCollection is
+	 * derived from the inputType of the aggregation.
+	 * <p>
+	 * Aggregation streaming can't be used with {@link AggregationOptions#isExplain() aggregation explain}. Enabling
+	 * explanation mode will throw an {@link IllegalArgumentException}.
+	 *
+	 * @param aggregation The {@link TypedAggregation} specification holding the aggregation operations, must not be
+	 *          {@literal null}.
+	 * @param outputType The parameterized type of the returned list, must not be {@literal null}.
+	 * @return The results of the aggregation operation.
+	 * @since 1.11
+	 */
+	<O> CloseableIterator<O> aggregateStream(TypedAggregation<?> aggregation, Class<O> outputType);
+
+	/**
+	 * Execute an aggregation operation backed by a Mongo DB {@link Cursor}.
+	 * <p>
+	 * Returns a {@link CloseableIterator} that wraps the a Mongo DB {@link Cursor} that needs to be closed. The raw
+	 * results will be mapped to the given entity class.
+	 * <p>
+	 * Aggregation streaming can't be used with {@link AggregationOptions#isExplain() aggregation explain}. Enabling
+	 * explanation mode will throw an {@link IllegalArgumentException}.
+	 *
+	 * @param aggregation The {@link Aggregation} specification holding the aggregation operations, must not be
+	 *          {@literal null}.
+	 * @param inputType the inputType where the aggregation operation will read from, must not be {@literal null} or
+	 *          empty.
+	 * @param outputType The parameterized type of the returned list, must not be {@literal null}.
+	 * @return The results of the aggregation operation.
+	 * @since 1.11
+	 */
+	<O> CloseableIterator<O> aggregateStream(Aggregation aggregation, Class<?> inputType, Class<O> outputType);
+
+	/**
+	 * Execute an aggregation operation backed by a Mongo DB {@link Cursor}.
+	 * <p>
+	 * Returns a {@link CloseableIterator} that wraps the a Mongo DB {@link Cursor} that needs to be closed. The raw
+	 * results will be mapped to the given entity class.
+	 * <p>
+	 * Aggregation streaming can't be used with {@link AggregationOptions#isExplain() aggregation explain}. Enabling
+	 * explanation mode will throw an {@link IllegalArgumentException}.
+	 *
+	 * @param aggregation The {@link Aggregation} specification holding the aggregation operations, must not be
+	 *          {@literal null}.
+	 * @param collectionName the collection where the aggregation operation will read from, must not be {@literal null} or
+	 *          empty.
+	 * @param outputType The parameterized type of the returned list, must not be {@literal null}.
+	 * @return The results of the aggregation operation.
+	 * @since 1.11
+	 */
+	<O> CloseableIterator<O> aggregateStream(Aggregation aggregation, String collectionName, Class<O> outputType);
 
 	/**
 	 * Execute a map-reduce operation. The map-reduce operation will be formed with an output type of INLINE
@@ -666,8 +722,8 @@ public interface MongoOperations {
 	<T> T findById(Object id, Class<T> entityClass, String collectionName);
 
 	/**
-	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify
-	 * <a/> to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query}.
+	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify <a/>
+	 * to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query}.
 	 * 
 	 * @param query the {@link Query} class that specifies the {@link Criteria} used to find a record and also an optional
 	 *          fields specification.
@@ -678,8 +734,8 @@ public interface MongoOperations {
 	<T> T findAndModify(Query query, Update update, Class<T> entityClass);
 
 	/**
-	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify
-	 * <a/> to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query}.
+	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify <a/>
+	 * to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query}.
 	 * 
 	 * @param query the {@link Query} class that specifies the {@link Criteria} used to find a record and also an optional
 	 *          fields specification.
@@ -691,8 +747,8 @@ public interface MongoOperations {
 	<T> T findAndModify(Query query, Update update, Class<T> entityClass, String collectionName);
 
 	/**
-	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify
-	 * <a/> to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query} taking
+	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify <a/>
+	 * to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query} taking
 	 * {@link FindAndModifyOptions} into account.
 	 * 
 	 * @param query the {@link Query} class that specifies the {@link Criteria} used to find a record and also an optional
@@ -705,8 +761,8 @@ public interface MongoOperations {
 	<T> T findAndModify(Query query, Update update, FindAndModifyOptions options, Class<T> entityClass);
 
 	/**
-	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify
-	 * <a/> to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query} taking
+	 * Triggers <a href="http://docs.mongodb.org/manual/reference/method/db.collection.findAndModify/">findAndModify <a/>
+	 * to apply provided {@link Update} on documents matching {@link Criteria} of given {@link Query} taking
 	 * {@link FindAndModifyOptions} into account.
 	 * 
 	 * @param query the {@link Query} class that specifies the {@link Criteria} used to find a record and also an optional
@@ -718,7 +774,7 @@ public interface MongoOperations {
 	 * @return
 	 */
 	<T> T findAndModify(Query query, Update update, FindAndModifyOptions options, Class<T> entityClass,
-						String collectionName);
+			String collectionName);
 
 	/**
 	 * Map the results of an ad-hoc query on the collection for the entity type to a single instance of an object of the

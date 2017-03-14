@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 the original author or authors.
+ * Copyright 2014-2017 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,9 @@
  */
 package org.springframework.data.mongodb.core.aggregation;
 
+import org.springframework.util.Assert;
+
+import com.mongodb.AggregationOptions.OutputMode;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 
@@ -25,12 +28,14 @@ import com.mongodb.DBObject;
  * 
  * @author Thomas Darimont
  * @author Oliver Gierke
+ * @author Mark Paluch
  * @see Aggregation#withOptions(AggregationOptions)
  * @see TypedAggregation#withOptions(AggregationOptions)
  * @since 1.6
  */
 public class AggregationOptions {
 
+	private static final String BATCH_SIZE = "batchSize";
 	private static final String CURSOR = "cursor";
 	private static final String EXPLAIN = "explain";
 	private static final String ALLOW_DISK_USE = "allowDiskUse";
@@ -54,6 +59,47 @@ public class AggregationOptions {
 	}
 
 	/**
+	 * Creates a new {@link AggregationOptions}.
+	 * 
+	 * @param allowDiskUse whether to off-load intensive sort-operations to disk.
+	 * @param explain whether to get the execution plan for the aggregation instead of the actual results.
+	 * @param cursorBatchSize initial cursor batch size.
+	 */
+	public AggregationOptions(boolean allowDiskUse, boolean explain, int cursorBatchSize) {
+		this(allowDiskUse, explain, createCursor(cursorBatchSize));
+	}
+
+	/**
+	 * Creates new {@link AggregationOptions} given {@link DBObject} containing aggregation options.
+	 * 
+	 * @param dbo must not be {@literal null}.
+	 * @return the {@link AggregationOptions}.
+	 * @since 1.11
+	 */
+	public static AggregationOptions fromDBObject(DBObject dbo) {
+
+		Assert.notNull(dbo, "DBObject must not be null!");
+
+		boolean allowDiskUse = false;
+		boolean explain = false;
+		DBObject cursor = null;
+
+		if (dbo.containsField(ALLOW_DISK_USE)) {
+			allowDiskUse = (Boolean) dbo.get(ALLOW_DISK_USE);
+		}
+
+		if (dbo.containsField(EXPLAIN)) {
+			explain = (Boolean) dbo.get(EXPLAIN);
+		}
+
+		if (dbo.containsField(CURSOR)) {
+			cursor = (DBObject) dbo.get(CURSOR);
+		}
+
+		return new AggregationOptions(allowDiskUse, explain, cursor);
+	}
+
+	/**
 	 * Enables writing to temporary files. When set to true, aggregation stages can write data to the _tmp subdirectory in
 	 * the dbPath directory.
 	 * 
@@ -70,6 +116,20 @@ public class AggregationOptions {
 	 */
 	public boolean isExplain() {
 		return explain;
+	}
+
+	/**
+	 * The initial cursor batch size, if available, otherwise {@literal null}.
+	 *
+	 * @return the batch size or {@literal null}.
+	 */
+	public Integer getCursorBatchSize() {
+
+		if (cursor != null && cursor.containsField("batchSize")) {
+			return (Integer) cursor.get("batchSize");
+		}
+
+		return null;
 	}
 
 	/**
@@ -101,10 +161,35 @@ public class AggregationOptions {
 		}
 
 		if (cursor != null && !result.containsField(CURSOR)) {
-			result.put("cursor", cursor);
+			result.put(CURSOR, cursor);
 		}
 
 		return result;
+	}
+
+	/**
+	 * Returns a MongoDB-specific {@link com.mongodb.AggregationOptions} representation of this
+	 * {@link AggregationOptions}.
+	 *
+	 * @return MongoDB-specific {@link com.mongodb.AggregationOptions} object.
+	 * @since 1.11
+	 */
+	public com.mongodb.AggregationOptions getMongoAggregationOptions() {
+
+		com.mongodb.AggregationOptions.Builder builder = com.mongodb.AggregationOptions.builder();
+
+		builder.allowDiskUse(allowDiskUse);
+
+		if (cursor != null) {
+
+			builder.outputMode(OutputMode.CURSOR);
+
+			if (cursor.containsField(BATCH_SIZE)) {
+				builder.batchSize((Integer) cursor.get(BATCH_SIZE));
+			}
+		}
+
+		return builder.build();
 	}
 
 	/**
@@ -129,11 +214,16 @@ public class AggregationOptions {
 	public String toString() {
 		return toDbObject().toString();
 	}
+	
+	static BasicDBObject createCursor(int cursorBatchSize) {
+		return new BasicDBObject("batchSize", cursorBatchSize);
+	}
 
 	/**
 	 * A Builder for {@link AggregationOptions}.
 	 * 
 	 * @author Thomas Darimont
+	 * @author Mark Paluch
 	 */
 	public static class Builder {
 
@@ -174,6 +264,18 @@ public class AggregationOptions {
 		public Builder cursor(DBObject cursor) {
 
 			this.cursor = cursor;
+			return this;
+		}
+		
+		/**
+		 * Define the initial cursor batch size.
+		 * 
+		 * @param batchSize
+		 * @return
+		 */
+		public Builder cursorBatchSize(int batchSize) {
+
+			this.cursor = createCursor(batchSize);
 			return this;
 		}
 
